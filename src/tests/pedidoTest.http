@@ -1,0 +1,21 @@
+GET http://localhost:3000/api/pedidos
+
+###
+POST http://localhost:3000/api/pedidos
+Content-Type: application/json
+
+{
+    "itens": [
+        {
+            "produto_id": 1,
+            "quantidade": 2
+        },
+        {
+            "produto_id": 2,
+            "quantidade": 3
+        }
+    ]
+}
+
+###
+DELETE http://localhost:3000/api/pedidos/3
