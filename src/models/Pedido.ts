@@ -37,31 +37,34 @@ export const PedidoModel = {
       const pedido = await client.query(
         "INSERT INTO pedidos (status) VALUES ('pendente') RETURNING id"
       );
-      const pedidoID = pedido.rows[0].id;
+      const pedidoId = pedido.rows[0].id;
       for (const item of itens) {
-        const produtoSelecionado = await client.query(
-          "SELECT estoque, nome, preco FROM produtos WHERE id = $1",
+        const queryProduto = await client.query(
+          "SELECT estoque, nome, preco FROM produtos WHERE  id = $1",
           [item.produto_id]
         );
-        const produto = produtoSelecionado.rows[0];
-        if (!produto)
-          throw new Error(`Produto com id ${item.produto_id} não encontrado`);
-        if (produto.estoque < item.quantidade)
-          throw new Error(`Estoque insuficiente para: ${produto.nome}`);
+        const produtoSelecionado = queryProduto.rows[0];
+        if (!produtoSelecionado) {
+          throw new Error("Produto não encontrado");
+        }
+        if (produtoSelecionado.estoque < item.quantidade) {
+          throw new Error(
+            `Estoque insuficiente para o produto: ${produtoSelecionado.nome}!`
+          );
+        }
         await client.query(
-          "Update produtos SET estoque = estoque - $1 WHERe id = $2",
+          "UPDATE produtos SET estoque = estoque - $1 WHERE id = $2",
           [item.quantidade, item.produto_id]
         );
         await client.query(
           "INSERT INTO itens_pedido(pedido_id, produto_id, quantidade, preco_un) VALUES ($1,$2,$3,$4)",
-          [pedidoID, item.produto_id, item.quantidade, produto.preco]
+          [pedidoId, item.produto_id, item.quantidade, produtoSelecionado.preco]
         );
       }
       await client.query("COMMIT");
-      return { id: pedidoID };
+      return { id: pedidoId };
     } catch (error) {
       await client.query("ROLLBACK");
-
       throw error;
     } finally {
       client.release();
@@ -69,22 +72,17 @@ export const PedidoModel = {
   },
 
   async listarTodos(): Promise<IPedido[]> {
-    const query = `SELECT p.id as pedido_id, p.data_criacao as data_criacao,p.status,ip.id as item_id,ip.produto_id,ip.quantidade,pr
-    .nome as produto_nome,pr.preco as produto_preco
-    FROM pedidos p 
-    LEFT JOIN itens_pedido ip ON p.id = ip.pedido_id 
-    LEFT JOIN produtos pr ON ip.produto_id = pr.id
-    ORDER BY p.data_criacao DESC`;
+    const query = `
+      SELECT p.id as pedido_id, p.data_criacao, p.status, ip.id as item_id, ip.produto_id, ip.quantidade, pr.nome as produto_nome, pr.preco as produto_preco
+      FROM pedidos p 
+      LEFT JOIN itens_pedido ip ON p.id = ip.pedido_id
+      LEFT JOIN produtos pr ON ip.produto_id = pr.id
+      ORDER BY p.data_criacao DESC
+    `;
     const { rows } = await pool.query<IPedidoRow>(query);
     const listaPedidos: IPedido[] = [];
     for (const row of rows) {
       let pedidoExistente = listaPedidos.find((p) => p.id === row.pedido_id);
-      console.log(
-        "pedidoExistente:",
-        pedidoExistente,
-        "listaPedidos:",
-        listaPedidos
-      );
       if (!pedidoExistente) {
         pedidoExistente = {
           id: row.pedido_id,
@@ -94,7 +92,6 @@ export const PedidoModel = {
         };
         listaPedidos.push(pedidoExistente);
       }
-
       if (row.item_id) {
         pedidoExistente.itens.push({
           id: row.item_id,
@@ -108,12 +105,13 @@ export const PedidoModel = {
     }
     return listaPedidos;
   },
+
   async deletar(id: number): Promise<boolean> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       const queryItens =
-        "SELECT produto_id,quantidade FROM itens_pedido where pedido_id = $1";
+        "SELECT produto_id, quantidade FROM itens_pedido WHERE pedido_id = $1";
       const { rows } = await client.query(queryItens, [id]);
       for (const row of rows) {
         await client.query(
@@ -128,10 +126,66 @@ export const PedidoModel = {
       return (result.rowCount ?? 0) > 0;
     } catch (error) {
       await client.query("ROLLBACK");
-
       throw error;
     } finally {
       client.release();
     }
+  },
+
+  async atualizar(id: number, novosItens: INovoItemPedido[]): Promise<boolean> {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const { rows: itensAntigos } = await client.query(
+        "SELECT produto_id, quantidade FROM itens_pedido WHERE pedido_id = $1",
+        [id]
+      );
+      if (itensAntigos.length === 0) {
+        throw new Error("Pedido não encontrado ou sem itens.");
+      }
+      for (const item of itensAntigos) {
+        await client.query(
+          "UPDATE produtos SET estoque = estoque + $1 WHERE id = $2",
+          [item.quantidade, item.produto_id]
+        );
+      }
+      await client.query("DELETE FROM itens_pedido WHERE pedido_id = $1", [id]);
+      for (const item of novosItens) {
+        const { rows: produto } = await client.query(
+          "SELECT estoque, nome, preco FROM produtos WHERE  id = $1",
+          [item.produto_id]
+        );
+        const produtoSelecionado = produto[0];
+        if (!produtoSelecionado) {
+          throw new Error("Produto não encontrado");
+        }
+        if (produtoSelecionado.estoque < item.quantidade) {
+          throw new Error(
+            `Estoque insuficiente para o produto: ${produtoSelecionado.nome}!`
+          );
+        }
+        await client.query(
+          "UPDATE produtos SET estoque = estoque - $1 WHERE id = $2",
+          [item.quantidade, item.produto_id]
+        );
+        await client.query(
+          "INSERT INTO itens_pedido (pedido_id, produto_id, quantidade, preco_un) VALUES ($1,$2,$3,$4)",
+          [id, item.produto_id, item.quantidade, produtoSelecionado.preco]
+        );
+      }
+      await client.query("COMMIT");
+      return true;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  async mudarStatus(id: number, novoStatus: string): Promise<boolean> {
+    const query = "UPDATE pedidos SET status = $1 WHERE id = $2";
+    const result = await pool.query(query, [novoStatus, id]);
+    return (result.rowCount ?? 0) > 0;
   },
 };

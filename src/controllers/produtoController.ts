@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { ProdutoModel } from "../models/Produto.js";
+import type { error } from "node:console";
 
 export const getProdutos = async (req: Request, res: Response) => {
   try {
@@ -12,7 +13,6 @@ export const getProdutos = async (req: Request, res: Response) => {
 
 export const getProdutoPorId = async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-
   try {
     const produto = await ProdutoModel.buscarPorID(id);
     return res.json(produto);
