@@ -30,12 +30,16 @@ export interface IPedidoRow {
 }
 
 export const PedidoModel = {
-  async criar(itens: INovoItemPedido[]): Promise<{ id: number }> {
+  async criar(
+    itens: INovoItemPedido[],
+    status: string
+  ): Promise<{ id: number }> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       const pedido = await client.query(
-        "INSERT INTO pedidos (status) VALUES ('pendente') RETURNING id"
+        "INSERT INTO pedidos (status) VALUES ($1) RETURNING id",
+        [status || "pendente"]
       );
       const pedidoId = pedido.rows[0].id;
       for (const item of itens) {
@@ -187,5 +191,13 @@ export const PedidoModel = {
     const query = "UPDATE pedidos SET status = $1 WHERE id = $2";
     const result = await pool.query(query, [novoStatus, id]);
     return (result.rowCount ?? 0) > 0;
+  },
+
+  async getFaturamentoTotal(): Promise<number> {
+    const query =
+      "SELECT SUM(quantidade * preco_un) AS total FROM itens_pedido ip JOIN pedidos p on p.id = ip.pedido_id WHERE status = 'finalizado'";
+    const result = await pool.query(query);
+
+    return Number(result.rows[0].total) || 0;
   },
 };

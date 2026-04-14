@@ -16,20 +16,24 @@ export const getPedidos = async (req: Request, res: Response) => {
 };
 
 export const postPedido = async (req: Request, res: Response) => {
-  const itens: INovoItemPedido[] = req.body.itens;
+  const { itens, status } = req.body;
+
   if (!itens || !Array.isArray(itens)) {
     return res.status(400).json({ error: "Formato de itens inválido" });
   }
+
   try {
-    const novoPedido = await PedidoModel.criar(itens);
-    res.status(201).json(novoPedido);
+    const novoPedido = await PedidoModel.criar(itens, status);
+
+    return res.status(201).json(novoPedido);
   } catch (error: unknown) {
     if (error instanceof Error) {
       return res.status(400).json({ error: error.message });
     }
-    return res
-      .status(500)
-      .json({ error: "Ocorreu um erro inesperado ao processar o pedido." });
+
+    return res.status(500).json({
+      error: "Ocorreu um erro inesperado ao processar o pedido.",
+    });
   }
 };
 
@@ -91,3 +95,15 @@ export const patchStatus = async (req: Request, res: Response) => {
       .json({ error: "Ocorreu um erro inesperado ao atualizar o status." });
   }
 };
+export async function getRelatorio(req: Request, res: Response) {
+  try {
+    const total = await PedidoModel.getFaturamentoTotal();
+    return res.json({
+      faturamento_total: total,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      erro: "Erro ao gerar relatorio",
+    });
+  }
+}
