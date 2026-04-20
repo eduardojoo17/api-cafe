@@ -107,3 +107,18 @@ export async function getRelatorio(req: Request, res: Response) {
     });
   }
 }
+
+export async function cancelar(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const total = await PedidoModel.cancelamento(Number(id));
+
+    return res.status(200).json({
+      message: "PEdido cancelado e estoque atualizad",
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      error: error.message,
+    });
+  }
+}

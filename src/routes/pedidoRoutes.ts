@@ -6,6 +6,7 @@ import {
   patchStatus,
   postPedido,
   putPedido,
+  cancelar,
 } from "../controllers/PedidoController.js";
 
 const router = Router();
@@ -17,5 +18,6 @@ router.patch("/:id", patchStatus);
 router.put("/:id", putPedido);
 
 router.get("/relatorio", getRelatorio);
+router.patch("/:id/cancelar", cancelar);
 
 export const pedidoRoutes = router;

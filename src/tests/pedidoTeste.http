@@ -1,64 +1,64 @@
-//Listar todos
+### 1. Chamada relatório financeiro
+GET http://localhost:3000/api/pedidos/relatorio
+
+###
+
+### 2.  cancelar um pedido existente 
+PATCH http://localhost:3000/api/pedidos/9/cancelar
+Content-Type: application/json
+
+{}
+
+###
+
+### 3. Tentativa de cancelamento de um pedido que NÃO existe 
+PATCH http://localhost:3000/api/pedidos/9999/cancelar
+Content-Type: application/json
+
+{}
+
+###
+
+### 4. Tentativa de cancelamento de um pedido FINALIZADO 
+PATCH http://localhost:3000/api/pedidos/1/cancelar
+Content-Type: application/json
+
+{}
+
+### 
+
+
+// Listar todos
 GET http://localhost:3000/api/pedidos
 
 ###
 
-//Criar pedido
+// Criar pedido 
 POST http://localhost:3000/api/pedidos
 Content-Type: application/json
 
 {
   "status": "finalizado",
   "itens": [
-    {
-      "produto_id": 1,
-      "quantidade": 2
-    },
-    {
-      "produto_id": 2,
-      "quantidade": 1
-    },
-    {
-      "produto_id": 3,
-      "quantidade": 4
-    }
+    { "produto_id": 1,
+     "quantidade": 2 },
+
+    { "produto_id": 2, 
+    "quantidade": 1 }
   ]
 }
 
 ###
-// Deletar
+
+// Deletar pedido
 DELETE http://localhost:3000/api/pedidos/5
 
 ###
-// atualizar status
-PATCH  http://localhost:3000/api/pedidos/9
+
+// Atualizar status 
+PATCH http://localhost:3000/api/pedidos/9
 Content-Type: application/json
 
 {
     "status": "pendente"
 }
-
-###
-//Atualizar pedido
-PUT http://localhost:3000/api/pedidos
-Content-Type: application/json
-
-{
-    "itens": [
-        {
-            "produto_id": 1,
-            "quantidade": 2
-        },
-        {
-            "produto_id": 2,
-            "quantidade": 1
-        },
-        {
-            "produto_id": 3,
-            "quantidade": 4
-        }
-    ]
-} 
-
-###
-GET http://localhost:3000/api/pedidos/relatorio

@@ -200,4 +200,48 @@ export const PedidoModel = {
 
     return Number(result.rows[0].total) || 0;
   },
+
+  async cancelamento(id: number): Promise<boolean> {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const { rows: pedido } = await client.query(
+        "SELECT status FROM pedidos WHERE id = $1 FOR UPDATE",
+        [id]
+      );
+      if (pedido.length === 0) {
+        throw new Error("pedido não encontrado");
+      }
+      const statusAtual = pedido[0].status;
+
+      if (statusAtual != "pendente") {
+        throw new Error(
+          `Não é possivel cancelar um pedido com status ${statusAtual}`
+        );
+      }
+      await client.query(
+        "UPDATE pedidos SET status = 'cancelado' WHERE id = $1",
+        [id]
+      );
+
+      const { rows: itens } = await client.query(
+        "SELECT produto_id,quantidade FROM itens_pedido WHERE pedido_id =$1",
+        [id]
+      );
+
+      for (const item of itens) {
+        await client.query(
+          "UPDATE produtos SET estoque = estoque + $1 WHERE id = $2",
+          [item.quantidade, item.produto_id]
+        );
+      }
+      await client.query("COMMIT");
+      return true;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
 };
